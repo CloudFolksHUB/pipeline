@@ -4,10 +4,10 @@ pipeline {
     
 
     stages {
-        stage('Stage 1 - Name Here') {
+        stage('Checkout Code') {
             steps {
-                echo "🛠️ Step description here"
-                // Commands here (e.g., git, sh, etc.)
+                echo "🔁 Cloning Private GitHub Repository..."
+                git credentialsId: 'my-private-repo-creds', branch: 'main', url: 'https://github.com/CloudFolksHUB/superlab.git'
             }
         }
 

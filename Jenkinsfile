@@ -19,7 +19,8 @@ pipeline {
                 echo "🛠️ Building project"
                 sh "${MAVEN_HOME}/bin/mvn clean verify -Dtest=!FormUITest"
             }
-        }    
+        }
+    } 
 
     post {
         success {

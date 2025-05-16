@@ -1,21 +1,25 @@
 pipeline {
     agent any
+
     environment {
         MAVEN_HOME = tool 'MAVEN'
         SONAR_SCANNER = tool 'SonarScanner'
     }
+
     stages {
         stage('Checkout Code') {
             steps {
                 git credentialsId: 'my-private-repo-creds', branch: 'main', url: 'https://github.com/CloudFolksHUB/superlab.git'
             }
         }
-        stage('Maven Build' ) {
+
+        stage('Building project') {
             steps {
-                echo ''Building project''
+                echo '🔧 Building project & running unit tests (excluding Selenium GUI tests)...'
                 sh "${MAVEN_HOME}/bin/mvn clean verify -Dtest=!FormUITest"
             }
         }
+
         stage('SonarCloud Scan') {
             steps {
                 withSonarQubeEnv('SonarQube') {
@@ -36,6 +40,7 @@ pipeline {
                 }
             }
         }
+
         stage('Check Sonar Quality Gate') {
             steps {
                 timeout(time: 10, unit: 'MINUTES') {
@@ -48,9 +53,9 @@ pipeline {
                 }
             }
         }
+
         stage('Docker Build and Run') {
             steps {
-                echo '🐳 Building and running Docker container...'
                 sh """
                     docker build -t superlab:${BUILD_NUMBER} .
                     docker ps -q --filter "publish=8081" | grep -q . && docker rm -f \$(docker ps -q --filter "publish=8081") || echo "No container on port 8081"
@@ -59,13 +64,34 @@ pipeline {
                 """
             }
         }
+
+        stage('Selenium Headless GUI Test') {
+            steps {
+                echo '🚀 Running Selenium GUI tests...'
+                sh "${MAVEN_HOME}/bin/mvn -Dtest=FormUITest test -DfailIfNoTests=false"
+            }
+        }
+
+        stage('Push Docker Image to Docker Hub') {
+            steps {
+                echo '📦 Pushing image to Docker Hub...'
+                withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh """
+                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                        docker tag superlab:${BUILD_NUMBER} cfhpublic/superlab:${BUILD_NUMBER}
+                        docker push cfhpublic/superlab:${BUILD_NUMBER}
+                    """
+                }
+            }
+        }
     }
+
     post {
         success {
-            echo '✅ All stages up to Docker Run passed successfully!'
+            echo '✅ All stages passed successfully and image pushed to Docker Hub!'
         }
         failure {
-            echo '❌ Pipeline failed. Please check logs or Docker build errors.'
+            echo '❌ Pipeline failed. Please check the logs.'
         }
     }
 }

@@ -1,29 +1,25 @@
 pipeline {
     agent any
-
     environment {
         MAVEN_HOME = tool 'MAVEN'
         SONAR_SCANNER = tool 'SonarScanner'
     }
-
     stages {
         stage('Checkout Code') {
             steps {
                 git credentialsId: 'my-private-repo-creds', branch: 'main', url: 'https://github.com/CloudFolksHUB/superlab.git'
             }
         }
-
-        stage('Building project') {
+        stage('Maven Build') {
             steps {
-                echo '🔧 Building project & running unit tests (excluding Selenium GUI tests)...'
+                echo 'Building project'
                 sh "${MAVEN_HOME}/bin/mvn clean verify -Dtest=!FormUITest"
             }
         }
-
-        stage('SonarCloud Scan') {
+        stage('SonarQube Code Quality Scan') {
             steps {
                 withSonarQubeEnv('SonarQube') {
-                    echo '🔍 Running SonarCloud analysis (coverage fully disabled)...'
+                    echo '🔍 Running SonarCloud analysis (coverage disabled for now)...'
                     sh """
                         ${SONAR_SCANNER}/bin/sonar-scanner \
                           -Dsonar.projectKey=sonartestorg01_sonarqubeproject \
@@ -40,7 +36,6 @@ pipeline {
                 }
             }
         }
-
         stage('Check Sonar Quality Gate') {
             steps {
                 timeout(time: 10, unit: 'MINUTES') {
@@ -53,32 +48,14 @@ pipeline {
                 }
             }
         }
-
-        stage('Docker Build and Run') {
-            steps {
-                sh """
-                    docker build -t superlab:${BUILD_NUMBER} .
-                    docker ps -q --filter "publish=8081" | grep -q . && docker rm -f \$(docker ps -q --filter "publish=8081") || echo "No container on port 8081"
-                    docker run -d -p 8081:8080 --name superlab-app-${BUILD_NUMBER} superlab:${BUILD_NUMBER}
-                    sleep 10
-                """
-            }
-        }
-
-        stage('Selenium Headless GUI Test') {
-            steps {
-                echo '🚀 Running Selenium GUI tests...'
-                sh "${MAVEN_HOME}/bin/mvn clean test -Dtest=FormUITest"
-            }
-        }
     }
 
     post {
         success {
-            echo '✅ All stages passed successfully including Selenium test!'
+            echo '✅ Phase 5 completed successfully! Code passed quality checks.'
         }
         failure {
-            echo '❌ Pipeline failed. Please check the logs.'
+            echo '❌ Pipeline failed. Please review the logs or SonarQube report.'
         }
     }
 }

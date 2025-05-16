@@ -10,16 +10,16 @@ pipeline {
                 git credentialsId: 'my-private-repo-creds', branch: 'main', url: 'https://github.com/CloudFolksHUB/superlab.git'
             }
         }
-        stage('Maven Build') {
+        stage('Maven Build' ) {
             steps {
-                echo 'Building project'
+                echo ''Building project''
                 sh "${MAVEN_HOME}/bin/mvn clean verify -Dtest=!FormUITest"
             }
         }
-        stage('SonarQube Code Quality Scan') {
+        stage('SonarCloud Scan') {
             steps {
                 withSonarQubeEnv('SonarQube') {
-                    echo '🔍 Running SonarCloud analysis (coverage disabled for now)...'
+                    echo '🔍 Running SonarCloud analysis (coverage fully disabled)...'
                     sh """
                         ${SONAR_SCANNER}/bin/sonar-scanner \
                           -Dsonar.projectKey=sonartestorg01_sonarqubeproject \
@@ -48,14 +48,24 @@ pipeline {
                 }
             }
         }
+        stage('Docker Build and Run') {
+            steps {
+                echo '🐳 Building and running Docker container...'
+                sh """
+                    docker build -t superlab:${BUILD_NUMBER} .
+                    docker ps -q --filter "publish=8081" | grep -q . && docker rm -f \$(docker ps -q --filter "publish=8081") || echo "No container on port 8081"
+                    docker run -d -p 8081:8080 --name superlab-app-${BUILD_NUMBER} superlab:${BUILD_NUMBER}
+                    sleep 10
+                """
+            }
+        }
     }
-
     post {
         success {
-            echo '✅ Phase 5 completed successfully! Code passed quality checks.'
+            echo '✅ All stages up to Docker Run passed successfully!'
         }
         failure {
-            echo '❌ Pipeline failed. Please review the logs or SonarQube report.'
+            echo '❌ Pipeline failed. Please check logs or Docker build errors.'
         }
     }
 }

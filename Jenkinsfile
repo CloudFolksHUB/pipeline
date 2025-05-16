@@ -9,7 +9,7 @@ pipeline {
     stages {
         stage('Checkout Code') {
             steps {
-                git branch: 'main', url: 'https://github.com/CloudFolksPublic/superlab.git'
+                git credentialsId: 'my-private-repo-creds', branch: 'main', url: 'https://github.com/CloudFolksHUB/superlab.git'
             }
         }
 

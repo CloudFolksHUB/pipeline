@@ -71,7 +71,7 @@ pipeline {
                 sh "${MAVEN_HOME}/bin/mvn -Dtest=FormUITest test -DfailIfNoTests=false"
             }
         }
-    }
+
         stage('Push Docker Image to Docker Hub') {
             steps {
                 echo '📦 Pushing image to Docker Hub...'
@@ -81,9 +81,10 @@ pipeline {
                         docker tag superlab:${BUILD_NUMBER} cfhpublic/superlab:${BUILD_NUMBER}
                         docker push cfhpublic/superlab:${BUILD_NUMBER}
                     """
+                }
+            }
         }
     }
-}
 
     post {
         success {

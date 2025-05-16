@@ -72,6 +72,18 @@ pipeline {
             }
         }
     }
+        stage('Push Docker Image to Docker Hub') {
+            steps {
+                echo '📦 Pushing image to Docker Hub...'
+                withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh """
+                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                        docker tag superlab:${BUILD_NUMBER} cfhpublic/superlab:${BUILD_NUMBER}
+                        docker push cfhpublic/superlab:${BUILD_NUMBER}
+                    """
+        }
+    }
+}
 
     post {
         success {

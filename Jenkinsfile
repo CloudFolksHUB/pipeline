@@ -73,6 +73,14 @@ pipeline {
             }
         }
     }
+        stage('Selenium Headless GUI Test') {
+            steps {
+            echo '🚀 Running Selenium GUI tests...'
+            sh "${MAVEN_HOME}/bin/mvn -Dtest=FormUITest test -DfailIfNoTests=false"
+
+        }
+
+    }
 
     post {
         success {

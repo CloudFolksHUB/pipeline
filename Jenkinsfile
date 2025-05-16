@@ -9,33 +9,32 @@ pipeline {
     stages {
         stage('Checkout Code') {
             steps {
-                echo '🔁 Cloning Repository...'
-                git credentialsId: 'your-credentials-id', branch: 'main', url: 'https://github.com/CloudFolksPublic/superlab.git'
+                git branch: 'main', url: 'https://github.com/CloudFolksPublic/superlab.git'
             }
         }
 
-        stage('Maven Build') {
+        stage('Building project') {
             steps {
-                echo '🔨 Building the Maven project...'
+                echo '🔧 Building project & running unit tests (excluding Selenium GUI tests)...'
                 sh "${MAVEN_HOME}/bin/mvn clean verify -Dtest=!FormUITest"
             }
         }
 
-        stage('SonarQube Code Quality Scan') {
+        stage('SonarCloud Scan') {
             steps {
                 withSonarQubeEnv('SonarQube') {
-                    echo '🔍 Running SonarCloud analysis...'
+                    echo '🔍 Running SonarCloud analysis (coverage fully disabled)...'
                     sh """
-                        ${SONAR_SCANNER}/bin/sonar-scanner \\
-                          -Dsonar.projectKey=sonartestorg01_sonarqubeproject \\
-                          -Dsonar.organization=sonartestorg01 \\
-                          -Dsonar.sources=src/main/java \\
-                          -Dsonar.tests=src/test/java \\
-                          -Dsonar.java.binaries=target/classes \\
-                          -Dsonar.coverage.exclusions=**/*.java \\
-                          -Dsonar.coverage.newCode.requiredCoverage=0 \\
-                          -Dsonar.newCode.period=1 \\
-                          -Dsonar.qualitygate.wait=true \\
+                        ${SONAR_SCANNER}/bin/sonar-scanner \
+                          -Dsonar.projectKey=sonartestorg01_sonarqubeproject \
+                          -Dsonar.organization=sonartestorg01 \
+                          -Dsonar.sources=src/main/java \
+                          -Dsonar.tests=src/test/java \
+                          -Dsonar.java.binaries=target/classes \
+                          -Dsonar.coverage.exclusions=**/*.java \
+                          -Dsonar.coverage.newCode.requiredCoverage=0 \
+                          -Dsonar.newCode.period=1 \
+                          -Dsonar.qualitygate.wait=true \
                           -Dsonar.host.url=https://sonarcloud.io
                     """
                 }
@@ -58,29 +57,28 @@ pipeline {
         stage('Docker Build and Run') {
             steps {
                 sh """
-                    echo '📦 Building Docker image...'
                     docker build -t superlab:${BUILD_NUMBER} .
-
-                    echo '🧹 Cleaning up old container (if any)...'
-                    docker ps -q --filter "publish=8081" | grep -q . && docker rm -f \$(docker ps -q --filter "publish=8081") || echo "No container found on port 8081"
-
-                    echo '🚀 Running Docker container...'
+                    docker ps -q --filter "publish=8081" | grep -q . && docker rm -f \$(docker ps -q --filter "publish=8081") || echo "No container on port 8081"
                     docker run -d -p 8081:8080 --name superlab-app-${BUILD_NUMBER} superlab:${BUILD_NUMBER}
-
-                    echo '⏳ Waiting for app to start...'
                     sleep 10
                 """
             }
         }
+
+        stage('Selenium Headless GUI Test') {
+            steps {
+                echo '🚀 Running Selenium GUI tests...'
+                sh "${MAVEN_HOME}/bin/mvn -Dtest=FormUITest test -DfailIfNoTests=false"
+            }
+        }
     }
-      
 
     post {
         success {
-            echo '✅ Phase 5 completed successfully! Code passed quality checks.'
+            echo '✅ All stages passed successfully including Selenium test!'
         }
         failure {
-            echo '❌ Pipeline failed. Please review the logs or SonarQube report.'
+            echo '❌ Pipeline failed. Please check the logs.'
         }
     }
 }
